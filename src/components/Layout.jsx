@@ -17,7 +17,6 @@ const Header = styled.header`
   background: var(--color-bg-primary);
   position: sticky;
   top: 0;
-  z-index: 100;
 `;
 
 const Logo = styled.a`
@@ -30,21 +29,28 @@ const Logo = styled.a`
   gap: var(--space-sm);
   
   &:hover {
-    color: var(--color-accent);
+    opacity: 0.8;
   }
 `;
 
-const LogoIcon = styled.span`
-  width: 32px;
+const LogoImage = styled.img`
   height: 32px;
-  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-size: 0.875rem;
+  width: auto;
+  display: block;
+  filter: brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(1352%) hue-rotate(243deg) brightness(95%) contrast(91%);
+  
+  /* Fallback if image doesn't load */
+  &:not([src]),
+  &[src=""],
+  &[src="undefined"] {
+    display: none;
+  }
+`;
+
+const LogoFallback = styled.span`
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-accent);
 `;
 
 const ThemeToggle = styled.button`
@@ -72,10 +78,7 @@ const ThemeIcon = styled.span`
 
 const Main = styled.main`
   flex: 1;
-  padding: var(--space-xl);
-  max-width: 1400px;
   width: 100%;
-  margin: 0 auto;
 `;
 
 const Layout = ({ children }) => {
@@ -85,8 +88,17 @@ const Layout = ({ children }) => {
     <LayoutContainer>
       <Header>
         <Logo href="/">
-          <LogoIcon>BA</LogoIcon>
-          Batch Analytics
+          <LogoImage 
+            src="/images/superbryn-logo.png" 
+            alt="SuperBryn"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              if (e.target.nextSibling) {
+                e.target.nextSibling.style.display = 'block';
+              }
+            }}
+          />
+          <LogoFallback style={{ display: 'none' }}>SuperBryn</LogoFallback>
         </Logo>
         <ThemeToggle onClick={toggleTheme}>
           <ThemeIcon>{theme === 'light' ? '🌙' : '☀️'}</ThemeIcon>

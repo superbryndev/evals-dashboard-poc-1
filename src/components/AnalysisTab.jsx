@@ -156,7 +156,8 @@ const AnalysisTab = ({ batchId }) => {
         }),
         fetchBatchDetails(batchId).catch(err => {
           console.warn('Failed to fetch batch details:', err);
-          return null;
+          // Return empty structure instead of null to prevent errors
+          return { jobs: [] };
         }),
       ]);
       
@@ -202,7 +203,9 @@ const AnalysisTab = ({ batchId }) => {
 
   const handleReAnalyzeBatch = async () => {
     if (!batchId) {
-      alert('Batch ID not available.');
+      if (window.showToast) {
+        window.showToast('Batch ID not available.', 'error');
+      }
       return;
     }
 
@@ -215,7 +218,9 @@ const AnalysisTab = ({ batchId }) => {
       const result = await triggerBatchAnalysis(batchId, true); // force_refresh = true
       
       if (result.status === 'no_calls') {
-        alert('No completed calls found in this batch to analyze.');
+        if (window.showToast) {
+          window.showToast('No completed calls found in this batch to analyze.', 'warning');
+        }
         setReAnalyzing(false);
         return;
       }
@@ -292,22 +297,62 @@ const AnalysisTab = ({ batchId }) => {
 
   const { summary, results = [] } = analysisData || { summary: { passed_count: 0, failed_count: 0, pending_count: 0, avg_csat: null }, results: [] };
   
+  // Helper function to determine if a call is ready for analysis
+  // Checks analytics outcome first, then falls back to call/job status
+  const isCallReadyForAnalysis = (call, job) => {
+    // First, check if analytics exists and has outcome === "completed"
+    const callAnalytics = call?.analytics || {};
+    const rawAnalytics = typeof callAnalytics === 'object' ? callAnalytics : {};
+    
+    // Check for outcome in analytics (handle nested structures)
+    const analyticsOutcome = callAnalytics?.outcome || rawAnalytics?.outcome;
+    
+    if (analyticsOutcome === 'completed') {
+      return true;
+    }
+    
+    // If analytics exists but outcome is not "completed", don't include it
+    // (unless it's explicitly null/undefined, meaning analytics might not be fully loaded)
+    if (callAnalytics && Object.keys(callAnalytics).length > 0 && analyticsOutcome !== null && analyticsOutcome !== undefined) {
+      return false;
+    }
+    
+    // Fall back to call/job status if analytics is not present or doesn't have outcome
+    return call?.status === 'completed' || job?.status === 'completed';
+  };
+  
   // Build a map of calls with analysis
+  // Map by both call_id (SIP call ID) and call_uuid (if available) for better matching
   const callsWithAnalysis = new Map();
+  const callsWithAnalysisByUuid = new Map();
   results.forEach(result => {
-    callsWithAnalysis.set(result.call_id, result);
+    if (result.call_id) {
+      callsWithAnalysis.set(result.call_id, result);
+    }
+    // Also map by UUID if available
+    if (result.call_uuid) {
+      callsWithAnalysisByUuid.set(result.call_uuid, result);
+    }
   });
   
   // Get calls without analysis from batch details
+  // Handle both inbound and outbound batch structures
   const callsWithoutAnalysis = [];
-  if (batchDetails && batchDetails.jobs) {
-    batchDetails.jobs.forEach(job => {
+  const jobs = batchDetails?.jobs || [];
+  
+  if (batchDetails && jobs.length > 0) {
+    jobs.forEach(job => {
       if (job.call && job.call.id) {
         const callUuid = job.call.id; // Use UUID (id field) instead of call_id
         const sipCallId = job.call.call_id; // Keep SIP call_id for display
-        // Only include completed calls that don't have analysis
-        // Check if analysis exists by SIP call_id
-        if (job.call.status === 'completed' && !callsWithAnalysis.has(sipCallId)) {
+        
+        // Check if call is ready for analysis using analytics outcome first
+        // Only include calls that don't already have analysis results
+        // Check both sipCallId and callUuid in case the mapping uses different identifiers
+        const hasAnalysis = callsWithAnalysis.has(sipCallId) || 
+                           callsWithAnalysisByUuid.has(callUuid);
+        
+        if (isCallReadyForAnalysis(job.call, job) && !hasAnalysis) {
           callsWithoutAnalysis.push({
             id: callUuid, // UUID for API call
             call_id: sipCallId, // SIP call_id for display

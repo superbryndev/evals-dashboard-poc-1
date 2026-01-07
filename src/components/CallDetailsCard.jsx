@@ -219,11 +219,29 @@ const CallDetailsCard = ({ job, call, scenario }) => {
 
   useEffect(() => {
     const loadAnalytics = async () => {
+      // If call object already has analytics, use it directly (no need to fetch)
+      if (call?.analytics && isCompleted) {
+        console.log('Using analytics from call object:', call.analytics);
+        // Format as CallAnalyticsResponse for consistency
+        setAnalytics({
+          call_id: call.call_id || call.id,
+          job_id: call.job_id,
+          room_name: call.room_name,
+          status: call.status,
+          duration_seconds: call.duration_seconds,
+          analytics: call.analytics, // This is already the structured analytics object
+          scenario_snapshot: null, // Will be passed separately via props
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Otherwise, fetch from API
       // Try call_id first, then id, then room_name as fallback
       const callIdentifier = call?.call_id || call?.id || call?.room_name;
       
       if (!callIdentifier || !isCompleted) {
-        console.log('Skipping analytics load:', { callIdentifier, isCompleted });
+        console.log('Skipping analytics load:', { callIdentifier, isCompleted, hasCallAnalytics: !!call?.analytics });
         return;
       }
       
@@ -253,7 +271,7 @@ const CallDetailsCard = ({ job, call, scenario }) => {
     };
     
     loadAnalytics();
-  }, [call?.call_id, call?.id, call?.room_name, isCompleted]);
+  }, [call?.call_id, call?.id, call?.room_name, call?.analytics, isCompleted]);
 
   const handleEvaluate = async (forceRefresh = false) => {
     const callIdentifier = call?.call_id || call?.id || call?.room_name;
@@ -307,8 +325,24 @@ const CallDetailsCard = ({ job, call, scenario }) => {
   
   const timing = callAnalytics?.timing || rawAnalytics?.timing || {};
   
-  // Get duration from analytics timing, fall back to call.duration_seconds
+  // Get duration from analytics timing, fall back to call.duration_seconds or analytics.duration_seconds
   const callDuration = timing?.duration_seconds || call?.duration_seconds || analytics?.duration_seconds;
+  
+  // Debug logging to diagnose data flow issues
+  console.log('CallDetailsCard data flow:', {
+    hasAnalyticsFromAPI: !!analytics,
+    hasCallObject: !!call,
+    callHasAnalytics: !!call?.analytics,
+    analyticsStructure: analytics ? Object.keys(analytics) : [],
+    callAnalyticsKeys: Object.keys(callAnalytics),
+    rawAnalyticsKeys: Object.keys(rawAnalytics),
+    transcript: transcript?.length || 0,
+    hasRecording: !!recording?.url,
+    recordingUrl: recording?.url,
+    timing: timing,
+    callDuration: callDuration,
+    callDurationSeconds: call?.duration_seconds,
+  });
   
   // Debug logging
   if (analytics || call?.analytics) {

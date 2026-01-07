@@ -1,0 +1,192 @@
+.active-calls-list {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+}
+
+.active-calls-list__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xl);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.active-calls-list__title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.active-calls-list__count {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: #DCFCE7;
+  color: #166534;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.active-calls-list__pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.active-calls-list__empty {
+  text-align: center;
+  padding: var(--space-2xl);
+}
+
+.active-calls-list__empty-icon {
+  font-size: 3rem;
+  margin-bottom: var(--space-md);
+  opacity: 0.5;
+}
+
+.active-calls-list__empty p {
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.active-calls-list__empty-hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
+.active-calls-list__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-lg);
+}
+
+.active-call-card {
+  background: var(--color-bg-primary);
+  border: 1px solid #D1FAE5;
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  transition: all var(--transition-fast);
+}
+
+.active-call-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.active-call-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.active-call-card__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.active-call-card__pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.active-call-card__status-text {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: #166534;
+}
+
+.active-call-card__duration {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+}
+
+.active-call-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.active-call-card__scenario,
+.active-call-card__call-id,
+.active-call-card__phone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.active-call-card__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.active-call-card__value {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.active-call-card__value--mono {
+  font-family: var(--font-mono);
+  font-weight: 400;
+}
+
+.active-call-card__value--phone {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-base);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.active-call-card__phone {
+  padding: var(--space-sm) 0;
+  border-top: 1px solid rgba(133, 92, 241, 0.1);
+  border-bottom: 1px solid rgba(133, 92, 241, 0.1);
+  margin: var(--space-xs) 0;
+}
+
+.active-call-card__button {
+  width: 100%;
+  padding: var(--space-sm);
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.active-call-card__button:hover {
+  background: var(--color-accent-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 768px) {
+  .active-calls-list__grid {
+    grid-template-columns: 1fr;
+  }
+}
+

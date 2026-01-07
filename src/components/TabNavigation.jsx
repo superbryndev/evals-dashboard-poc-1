@@ -3,24 +3,25 @@ import styled from '@emotion/styled';
 
 const TabsContainer = styled.div`
   display: flex;
-  gap: var(--space-xs);
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-md);
+  border-bottom: 2px solid var(--color-border);
   padding-bottom: 0;
+  margin-top: var(--space-lg);
 `;
 
 const Tab = styled.button`
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-md) var(--space-lg);
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   color: var(--color-muted);
   font-size: 0.9375rem;
   font-weight: 500;
   transition: all var(--transition-fast);
-  margin-bottom: -1px;
+  margin-bottom: -2px;
   
   &:hover:not(:disabled) {
     color: var(--color-text-primary);

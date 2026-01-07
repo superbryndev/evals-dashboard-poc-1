@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -126,6 +126,142 @@ export const triggerBatchAnalysis = async (batchId, forceRefresh = false) => {
     null,
     { params: { force_refresh: forceRefresh } }
   );
+  return response.data;
+};
+
+/**
+ * Retry a failed job by creating a new job with the same scenario
+ * @param {string} jobId - The job UUID to retry
+ * @returns {Promise<Object>} Retry response with new job_id
+ */
+export const retryJob = async (jobId) => {
+  const response = await api.post(`/api/v1/calls/job/${jobId}/retry`);
+  return response.data;
+};
+
+// ==================== INBOUND SIMULATION API ====================
+
+/**
+ * Get available phone numbers for inbound calls
+ * @returns {Promise<Object>} Phone numbers with availability status
+ */
+export const getPhoneNumbers = async () => {
+  const response = await api.get('/api/v1/calls/telephony/numbers');
+  return response.data;
+};
+
+/**
+ * Create an inbound simulation batch
+ * @param {Object} batchData - Batch creation data
+ * @param {Array} batchData.scenarios - Array of scenarios
+ * @param {string} batchData.outbound_agent_phone_number - Phone number of calling agent
+ * @param {number} batchData.max_concurrent_calls - Max concurrent calls (default: 5)
+ * @param {number} batchData.priority - Priority level 1-10 (default: 5)
+ * @param {number} batchData.max_duration_seconds - Max call duration (default: 300)
+ * @param {number} batchData.max_turns - Max conversation turns (default: 20)
+ * @returns {Promise<Object>} Batch creation response with batch_id
+ */
+export const createInboundBatch = async (batchData) => {
+  const response = await api.post('/api/v1/calls/inbound/batch', batchData);
+  return response.data;
+};
+
+/**
+ * Get inbound batch status
+ * @param {string} batchId - The batch UUID
+ * @returns {Promise<Object>} Batch status with job counts
+ */
+export const getInboundBatchStatus = async (batchId) => {
+  const response = await api.get(`/api/v1/calls/inbound/batch/${batchId}/status`);
+  return response.data;
+};
+
+/**
+ * Activate jobs in an inbound batch
+ * @param {string} batchId - The batch UUID
+ * @param {Array<string>} jobIds - Array of job IDs to activate
+ * @returns {Promise<Object>} Activation response with assigned phone numbers
+ */
+export const activateInboundJobs = async (batchId, jobIds) => {
+  const response = await api.post(`/api/v1/calls/inbound/batch/${batchId}/activate`, {
+    job_ids: jobIds,
+  });
+  return response.data;
+};
+
+/**
+ * Deactivate jobs in an inbound batch
+ * @param {string} batchId - The batch UUID
+ * @param {Array<string>} jobIds - Array of job IDs to deactivate
+ * @returns {Promise<Object>} Deactivation response with released phone numbers
+ */
+export const deactivateInboundJobs = async (batchId, jobIds) => {
+  const response = await api.post(`/api/v1/calls/inbound/batch/${batchId}/deactivate`, {
+    job_ids: jobIds,
+  });
+  return response.data;
+};
+
+/**
+ * Get jobs for an inbound batch
+ * @param {string} batchId - The batch UUID
+ * @param {Object} params - Query parameters
+ * @param {string} params.status - Filter by status (active, inactive, completed, etc.)
+ * @param {number} params.limit - Number of results per page (default: 50)
+ * @param {number} params.page - Page number (default: 1)
+ * @returns {Promise<Object>} Jobs list with pagination
+ */
+export const getInboundBatchJobs = async (batchId, params = {}) => {
+  const response = await api.get(`/api/v1/calls/inbound/batch/${batchId}/jobs`, { params });
+  return response.data;
+};
+
+/**
+ * Get list of all inbound batches
+ * @param {Object} params - Query parameters
+ * @param {number} params.limit - Number of results per page
+ * @param {number} params.page - Page number
+ * @returns {Promise<Object>} Batches list with pagination
+ */
+export const getInboundBatches = async (params = {}) => {
+  const response = await api.get('/api/v1/calls/inbound/batches', { params });
+  return response.data;
+};
+
+// ==================== PAYLOAD GENERATION API ====================
+
+/**
+ * Generate AI payloads for all jobs in a batch
+ * @param {string} batchId - The batch UUID
+ * @param {Array} fieldDefinitions - Array of field definitions
+ * @param {boolean} regenerateExisting - Whether to regenerate existing payloads
+ * @returns {Promise<Object>} Generation result with counts and errors
+ */
+export const generateBatchPayloads = async (batchId, fieldDefinitions, regenerateExisting = false) => {
+  const response = await api.post(`/api/v1/calls/batch/${batchId}/generate-payloads`, {
+    field_definitions: fieldDefinitions,
+    regenerate_existing: regenerateExisting,
+  });
+  return response.data;
+};
+
+/**
+ * Get generated payload for a specific job
+ * @param {string} jobId - The job UUID
+ * @returns {Promise<Object>} Job payload response
+ */
+export const getJobPayload = async (jobId) => {
+  const response = await api.get(`/api/v1/calls/job/${jobId}/payload`);
+  return response.data;
+};
+
+/**
+ * Get all generated payloads for a batch (for bulk download)
+ * @param {string} batchId - The batch UUID
+ * @returns {Promise<Object>} Batch payloads response
+ */
+export const getBatchPayloads = async (batchId) => {
+  const response = await api.get(`/api/v1/calls/batch/${batchId}/payloads`);
   return response.data;
 };
 

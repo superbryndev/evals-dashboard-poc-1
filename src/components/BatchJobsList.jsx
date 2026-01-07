@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import styled from '@emotion/styled';
 import StatusBadge from './StatusBadge';
 import CallDetailsCard from './CallDetailsCard';
+import Modal from './Modal';
+import ScenarioDetailModal from './ScenarioDetailModal';
+import PayloadViewerModal from './PayloadViewerModal';
+import ScenarioActivationToggle from './ScenarioActivationToggle';
+import { retryJob } from '../services/api';
 
 const ListContainer = styled.div`
   background: var(--color-bg-secondary);
@@ -12,11 +17,13 @@ const ListContainer = styled.div`
 
 const ListHeader = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr 140px 100px 120px;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
+  grid-template-columns: ${props => props.isInbound 
+    ? '80px 1fr 180px 140px 100px 200px' 
+    : '80px 1fr 140px 100px 240px'};
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
   background: var(--color-bg-tertiary);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 2px solid var(--color-border);
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-muted);
@@ -34,15 +41,20 @@ const JobRow = styled.div`
   &:last-child {
     border-bottom: none;
   }
+  
+  &:hover {
+    box-shadow: inset 0 0 0 1px var(--color-border);
+  }
 `;
 
 const JobRowMain = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr 140px 100px 120px;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
+  grid-template-columns: ${props => props.isInbound 
+    ? '80px 1fr 180px 140px 100px 200px' 
+    : '80px 1fr 140px 100px 240px'};
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
   align-items: center;
-  cursor: pointer;
   transition: background var(--transition-fast);
   
   &:hover {
@@ -55,17 +67,70 @@ const JobRowMain = styled.div`
   
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
-    gap: var(--space-sm);
+    gap: var(--space-md);
   }
 `;
 
-const JobId = styled.div`
+const SerialNumber = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   font-family: var(--font-mono);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: var(--color-text-primary);
+`;
+
+const RetryIcon = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  transition: all var(--transition-fast);
   
-  .truncated {
-    color: var(--color-muted);
+  &:hover:not(:disabled) {
+    color: var(--color-accent-hover);
+    transform: scale(1.1);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
+const PayloadIcon = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: ${props => props.hasPayload ? 'var(--color-success)' : 'var(--color-muted)'};
+  
+  &:hover {
+    transform: scale(1.1);
+    color: ${props => props.hasPayload ? 'var(--color-success)' : 'var(--color-accent)'};
+  }
+  
+  svg {
+    width: 16px;
+    height: 16px;
   }
 `;
 
@@ -73,11 +138,25 @@ const ScenarioInfo = styled.div`
   display: flex;
   flex-direction: column;
   gap: 2px;
+  cursor: pointer;
+  padding: var(--space-xs) var(--space-sm);
+  margin: calc(-1 * var(--space-xs)) calc(-1 * var(--space-sm));
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  
+  &:hover {
+    background: var(--color-accent-soft);
+    
+    .scenario-id {
+      color: var(--color-accent);
+    }
+  }
   
   .scenario-id {
     font-weight: 600;
     font-size: 0.875rem;
-    color: var(--color-text-primary);
+    color: var(--color-accent);
+    transition: color var(--transition-fast);
   }
   
   .scenario-desc {
@@ -86,7 +165,7 @@ const ScenarioInfo = styled.div`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 200px;
+    max-width: 400px;
   }
 `;
 
@@ -96,7 +175,12 @@ const Duration = styled.div`
   font-family: var(--font-mono);
 `;
 
-const EvalsButton = styled.button`
+const ActionButtons = styled.div`
+  display: flex;
+  gap: var(--space-sm);
+`;
+
+const ActionButton = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -123,10 +207,19 @@ const EvalsButton = styled.button`
       color: white;
     }
   `}
+  
+  ${props => props.variant === 'primary' && !props.disabled && `
+    background: var(--color-accent);
+    color: white;
+    
+    &:hover {
+      background: var(--color-accent-hover);
+    }
+  `}
 `;
 
 const ExpandedContent = styled.div`
-  padding: 0 var(--space-lg) var(--space-lg);
+  padding: var(--space-xl);
   background: var(--color-bg-tertiary);
   border-top: 1px solid var(--color-border);
 `;
@@ -232,8 +325,74 @@ const getEvaluationCriteria = (snapshot) => {
   return { agent_should: [], agent_should_not: [] };
 };
 
-const BatchJobsList = ({ jobs = [], showScenarios = false, onRefresh }) => {
+const PackageIcon = ({ hasPayload }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {hasPayload ? (
+      <>
+        <path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+        <line x1="12" y1="22.08" x2="12" y2="12" />
+      </>
+    ) : (
+      <>
+        <path d="M12.89 1.45l8 4A2 2 0 0 1 22 7.24v9.53a2 2 0 0 1-1.11 1.79l-8 4a2 2 0 0 1-1.79 0l-8-4a2 2 0 0 1-1.1-1.8V7.24a2 2 0 0 1 1.11-1.79l8-4a2 2 0 0 1 1.78 0z" />
+        <polyline points="2.32 6.16 12 11 21.68 6.16" />
+        <line x1="12" y1="22.76" x2="12" y2="11" />
+      </>
+    )}
+  </svg>
+);
+
+const BatchJobsList = ({ 
+  jobs = [], 
+  showScenarios = false, 
+  onRefresh, 
+  isInbound = false,
+  batchId,
+  availableSlots = 0,
+  onActivateJob,
+  onDeactivateJob,
+}) => {
   const [expandedJobId, setExpandedJobId] = useState(null);
+  const [retryingJobId, setRetryingJobId] = useState(null);
+  const [showRetryModal, setShowRetryModal] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState(null);
+  const [selectedScenario, setSelectedScenario] = useState(null);
+  const [showScenarioModal, setShowScenarioModal] = useState(false);
+  const [showPayloadModal, setShowPayloadModal] = useState(false);
+  const [selectedPayloadJob, setSelectedPayloadJob] = useState(null);
+
+  // Sort jobs: active/inprogress first, then inactive, then completed/failed
+  const sortedJobs = React.useMemo(() => {
+    const statusPriority = {
+      'inprogress': 1,
+      'active': 2,
+      'inactive': 3,
+      'pending': 4,
+      'processing': 5,
+      'completed': 6,
+      'failed': 7,
+      'no_answer': 8,
+    };
+
+    return [...jobs].sort((a, b) => {
+      const priorityA = statusPriority[a.status] || 99;
+      const priorityB = statusPriority[b.status] || 99;
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      
+      // If same priority, sort by created_at (newest first for active, oldest first for inactive)
+      if (priorityA <= 2) {
+        // For active/inprogress, show newest first
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      } else {
+        // For others, show oldest first
+        return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+      }
+    });
+  }, [jobs]);
 
   const toggleExpand = (jobId) => {
     setExpandedJobId(expandedJobId === jobId ? null : jobId);
@@ -241,6 +400,71 @@ const BatchJobsList = ({ jobs = [], showScenarios = false, onRefresh }) => {
 
   const isJobCompleted = (status) => {
     return ['completed', 'failed', 'no_answer'].includes(status);
+  };
+
+  const handleRetryClick = (jobId, e) => {
+    e.stopPropagation();
+    setSelectedJobId(jobId);
+    setShowRetryModal(true);
+  };
+
+  const handleRetryConfirm = async () => {
+    if (!selectedJobId) return;
+    
+    setRetryingJobId(selectedJobId);
+    setShowRetryModal(false);
+    
+    try {
+      await retryJob(selectedJobId);
+      
+      // Refresh the batch data
+      if (onRefresh) {
+        await onRefresh();
+      }
+      
+      // Show success toast
+      if (window.showToast) {
+        window.showToast('Job retry initiated successfully! A new job has been created and queued.', 'success');
+      }
+    } catch (error) {
+      console.error('Failed to retry job:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to retry job';
+      
+      // Show error toast
+      if (window.showToast) {
+        window.showToast(errorMessage, 'error', 7000);
+      }
+    } finally {
+      setRetryingJobId(null);
+      setSelectedJobId(null);
+    }
+  };
+
+  const handleRetryCancel = () => {
+    setShowRetryModal(false);
+    setSelectedJobId(null);
+  };
+
+  const handleScenarioClick = (scenario, e) => {
+    e.stopPropagation();
+    setSelectedScenario(scenario);
+    setShowScenarioModal(true);
+  };
+
+  const handleScenarioModalClose = () => {
+    setShowScenarioModal(false);
+    setSelectedScenario(null);
+  };
+
+  const handlePayloadClick = (job, e) => {
+    e.stopPropagation();
+    setSelectedPayloadJob(job);
+    setShowPayloadModal(true);
+  };
+
+  const handlePayloadModalClose = () => {
+    setShowPayloadModal(false);
+    setSelectedPayloadJob(null);
   };
 
   if (jobs.length === 0) {
@@ -255,19 +479,23 @@ const BatchJobsList = ({ jobs = [], showScenarios = false, onRefresh }) => {
   }
 
   return (
-    <ListContainer>
-      <ListHeader>
-        <div>Job ID</div>
-        <div>Scenario</div>
-        <div>Status</div>
-        <div>Duration</div>
-        <div>Evaluation</div>
-      </ListHeader>
+    <>
+      <ListContainer>
+        <ListHeader isInbound={isInbound}>
+          <div>#</div>
+          <div>Scenario</div>
+          {isInbound && <div>Activation</div>}
+          <div>Status</div>
+          <div>Duration</div>
+          <div>Actions</div>
+        </ListHeader>
       
-      {jobs.map((job) => {
+      {sortedJobs.map((job, index) => {
         const isExpanded = expandedJobId === job.job_id;
         const completed = isJobCompleted(job.status);
         const scenarioSnapshot = job.scenario_snapshot || {};
+        const isFailed = job.status === 'failed';
+        const hasAnalysis = job.call?.analysis || job.call?.analytics?.analysis;
         
         // Extract duration from analytics timing or call duration_seconds
         // Check both structured and raw analytics formats
@@ -276,33 +504,95 @@ const BatchJobsList = ({ jobs = [], showScenarios = false, onRefresh }) => {
         const timing = callAnalytics?.timing || rawAnalytics?.timing || {};
         const callDuration = timing?.duration_seconds || job.call?.duration_seconds;
         
+        // For inbound jobs, determine if the job is active (has assigned phone number)
+        const isJobActive = job.status === 'active' || job.status === 'inprogress';
+        const isInactiveJob = job.status === 'inactive';
+        const canActivate = isInactiveJob && availableSlots > 0;
+        const canDeactivate = job.status === 'active'; // Can only deactivate 'active' jobs, not 'inprogress'
+        
         return (
           <JobRow key={job.job_id}>
-            <JobRowMain 
-              onClick={() => toggleExpand(job.job_id)}
-              className={isExpanded ? 'expanded' : ''}
-            >
-              <JobId>
-                {truncateId(job.job_id)}
-                <span className="truncated">...</span>
-              </JobId>
-              <ScenarioInfo>
+            <JobRowMain className={isExpanded ? 'expanded' : ''} isInbound={isInbound}>
+              <SerialNumber>
+                #{index + 1}
+                {/* Only show payload icon for inbound batches (testing outbound agents) */}
+                {isInbound && (
+                  <PayloadIcon
+                    onClick={(e) => handlePayloadClick(job, e)}
+                    hasPayload={!!job.generated_payload}
+                    title="Payload"
+                  >
+                    <PackageIcon hasPayload={!!job.generated_payload} />
+                  </PayloadIcon>
+                )}
+                {isFailed && (
+                  <RetryIcon
+                    onClick={(e) => handleRetryClick(job.job_id, e)}
+                    disabled={retryingJobId === job.job_id}
+                    title="Retry failed job"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="23 4 23 10 17 10" />
+                      <polyline points="1 20 1 14 7 14" />
+                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                    </svg>
+                  </RetryIcon>
+                )}
+              </SerialNumber>
+              <ScenarioInfo 
+                onClick={(e) => handleScenarioClick(scenarioSnapshot, e)}
+                title="Click to view scenario details"
+              >
                 <span className="scenario-id">{getScenarioName(scenarioSnapshot)}</span>
                 <span className="scenario-desc">{getScenarioDescription(scenarioSnapshot)}</span>
               </ScenarioInfo>
+              {isInbound && (
+                <ScenarioActivationToggle
+                  jobId={job.job_id}
+                  isActive={isJobActive}
+                  assignedPhoneNumber={job.assigned_phone_number}
+                  disabled={
+                    (!canActivate && !canDeactivate) || 
+                    completed ||
+                    job.status === 'inprogress'
+                  }
+                  disabledReason={
+                    completed ? 'Job already completed' :
+                    job.status === 'inprogress' ? 'Call in progress' :
+                    !canActivate && isInactiveJob ? 'No phone slots available' :
+                    ''
+                  }
+                  onActivate={onActivateJob}
+                  onDeactivate={onDeactivateJob}
+                />
+              )}
               <StatusBadge status={job.status} />
               <Duration>{formatDuration(callDuration)}</Duration>
-              <EvalsButton 
-                disabled={!completed}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (completed) {
-                    setExpandedJobId(job.job_id);
-                  }
-                }}
-              >
-                evals
-              </EvalsButton>
+              <ActionButtons>
+                <ActionButton 
+                  disabled={!completed}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (completed) {
+                      setExpandedJobId(job.job_id);
+                    }
+                  }}
+                >
+                  View Details
+                </ActionButton>
+                <ActionButton 
+                  disabled={!hasAnalysis}
+                  variant={hasAnalysis ? 'primary' : undefined}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (hasAnalysis) {
+                      setExpandedJobId(job.job_id);
+                    }
+                  }}
+                >
+                  Analysis
+                </ActionButton>
+              </ActionButtons>
             </JobRowMain>
             
             {isExpanded && (
@@ -400,7 +690,39 @@ const BatchJobsList = ({ jobs = [], showScenarios = false, onRefresh }) => {
           </JobRow>
         );
       })}
-    </ListContainer>
+      </ListContainer>
+
+      <Modal
+        isOpen={showRetryModal}
+        onClose={handleRetryCancel}
+        title="Retry Failed Job"
+        type="warning"
+        onConfirm={handleRetryConfirm}
+        onCancel={handleRetryCancel}
+        confirmText="Retry"
+        cancelText="Cancel"
+      >
+        <p style={{ margin: 0, color: 'var(--color-text-primary)' }}>
+          Retry this failed call? A new job will be created with the same scenario and queued for processing.
+        </p>
+        <p style={{ margin: 'var(--space-sm) 0 0', fontSize: '0.8125rem', color: 'var(--color-muted)' }}>
+          The original failed job will be preserved for reference.
+        </p>
+      </Modal>
+
+      <ScenarioDetailModal
+        isOpen={showScenarioModal}
+        onClose={handleScenarioModalClose}
+        scenario={selectedScenario}
+      />
+
+      <PayloadViewerModal
+        isOpen={showPayloadModal}
+        onClose={handlePayloadModalClose}
+        jobId={selectedPayloadJob?.job_id}
+        scenarioName={getScenarioName(selectedPayloadJob?.scenario_snapshot)}
+      />
+    </>
   );
 };
 
