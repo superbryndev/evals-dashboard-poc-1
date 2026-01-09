@@ -5,6 +5,7 @@ import CallDetailsCard from './CallDetailsCard';
 import Modal from './Modal';
 import ScenarioDetailModal from './ScenarioDetailModal';
 import PayloadViewerModal from './PayloadViewerModal';
+import DebugInfoModal from './DebugInfoModal';
 import ScenarioActivationToggle from './ScenarioActivationToggle';
 import { retryJob } from '../services/api';
 
@@ -126,6 +127,30 @@ const PayloadIcon = styled.button`
   &:hover {
     transform: scale(1.1);
     color: ${props => props.hasPayload ? 'var(--color-success)' : 'var(--color-accent)'};
+  }
+  
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
+const DebugIcon = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--color-muted);
+  
+  &:hover {
+    transform: scale(1.1);
+    color: var(--color-accent);
   }
   
   svg {
@@ -361,16 +386,18 @@ const BatchJobsList = ({
   const [showScenarioModal, setShowScenarioModal] = useState(false);
   const [showPayloadModal, setShowPayloadModal] = useState(false);
   const [selectedPayloadJob, setSelectedPayloadJob] = useState(null);
+  const [showDebugModal, setShowDebugModal] = useState(false);
+  const [selectedDebugJob, setSelectedDebugJob] = useState(null);
 
-  // Sort jobs: active/inprogress first, then inactive, then completed/failed
+  // Sort jobs: ACTIVE > INPROGRESS > COMPLETED > REST
   const sortedJobs = React.useMemo(() => {
     const statusPriority = {
-      'inprogress': 1,
-      'active': 2,
-      'inactive': 3,
-      'pending': 4,
-      'processing': 5,
-      'completed': 6,
+      'active': 1,
+      'inprogress': 2,
+      'completed': 3,
+      'inactive': 4,
+      'pending': 5,
+      'processing': 6,
       'failed': 7,
       'no_answer': 8,
     };
@@ -383,7 +410,7 @@ const BatchJobsList = ({
         return priorityA - priorityB;
       }
       
-      // If same priority, sort by created_at (newest first for active, oldest first for inactive)
+      // If same priority, sort by created_at (newest first for active/inprogress, oldest first for others)
       if (priorityA <= 2) {
         // For active/inprogress, show newest first
         return new Date(b.created_at || 0) - new Date(a.created_at || 0);
@@ -467,6 +494,17 @@ const BatchJobsList = ({
     setSelectedPayloadJob(null);
   };
 
+  const handleDebugClick = (job, e) => {
+    e.stopPropagation();
+    setSelectedDebugJob(job);
+    setShowDebugModal(true);
+  };
+
+  const handleDebugModalClose = () => {
+    setShowDebugModal(false);
+    setSelectedDebugJob(null);
+  };
+
   if (jobs.length === 0) {
     return (
       <ListContainer>
@@ -525,6 +563,16 @@ const BatchJobsList = ({
                     <PackageIcon hasPayload={!!job.generated_payload} />
                   </PayloadIcon>
                 )}
+                <DebugIcon
+                  onClick={(e) => handleDebugClick(job, e)}
+                  title="Debug Info"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </DebugIcon>
                 {isFailed && (
                   <RetryIcon
                     onClick={(e) => handleRetryClick(job.job_id, e)}
@@ -721,6 +769,12 @@ const BatchJobsList = ({
         onClose={handlePayloadModalClose}
         jobId={selectedPayloadJob?.job_id}
         scenarioName={getScenarioName(selectedPayloadJob?.scenario_snapshot)}
+      />
+
+      <DebugInfoModal
+        isOpen={showDebugModal}
+        onClose={handleDebugModalClose}
+        job={selectedDebugJob}
       />
     </>
   );

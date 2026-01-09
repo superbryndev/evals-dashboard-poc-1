@@ -14,7 +14,7 @@ const WaveformContainer = styled.div`
   height: 60px;
   background: var(--color-bg-secondary);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow: visible;
   cursor: pointer;
   
   &:hover .hover-time {
@@ -127,6 +127,8 @@ const LoadingOverlay = styled.div`
   background: var(--color-bg-secondary);
   color: var(--color-muted);
   font-size: 0.8125rem;
+  pointer-events: none;
+  z-index: 1;
 `;
 
 const ErrorMessage = styled.div`
@@ -203,6 +205,21 @@ const WaveformPlayer = ({ src, duration: propDuration }) => {
   useEffect(() => {
     if (!containerRef.current || !src) return;
 
+    // Guard: Destroy existing instance before creating a new one
+    if (wavesurferRef.current) {
+      try {
+        wavesurferRef.current.destroy();
+      } catch (e) {
+        // Ignore destroy errors
+      }
+      wavesurferRef.current = null;
+    }
+
+    // Clear container to remove any leftover elements
+    if (containerRef.current) {
+      containerRef.current.innerHTML = '';
+    }
+
     const colors = getColors();
     
     // Create WaveSurfer instance
@@ -222,6 +239,7 @@ const WaveformPlayer = ({ src, duration: propDuration }) => {
       partialRender: true,
       backend: 'MediaElement', // Better CORS support than WebAudio
       mediaControls: false,
+      interact: true, // Enable clicking/seeking on waveform
     });
 
     wavesurferRef.current = wavesurfer;
@@ -231,6 +249,12 @@ const WaveformPlayer = ({ src, duration: propDuration }) => {
       setIsLoading(false);
       setDuration(wavesurfer.getDuration());
       wavesurfer.setVolume(volume);
+    });
+
+    // Handle waveform interaction (clicking/seeking)
+    wavesurfer.on('interaction', () => {
+      const newTime = wavesurfer.getCurrentTime();
+      setCurrentTime(newTime);
     });
 
     wavesurfer.on('audioprocess', () => {
@@ -333,17 +357,22 @@ const WaveformPlayer = ({ src, duration: propDuration }) => {
         loadingTimeoutRef.current = null;
       }
       
-      // Safely destroy wavesurfer only if not already destroyed
-      if (wavesurferRef.current) {
+      // Safely destroy wavesurfer instance
+      const instanceToDestroy = wavesurferRef.current || wavesurfer;
+      if (instanceToDestroy) {
         try {
           // Remove all event listeners first to prevent error callbacks
-          wavesurfer.removeAllListeners();
-          wavesurfer.destroy();
+          instanceToDestroy.removeAllListeners();
+          instanceToDestroy.destroy();
         } catch (e) {
           // Silently ignore destroy errors during cleanup - these are expected
           // when component unmounts or when switching to fallback
         } finally {
           wavesurferRef.current = null;
+          // Clear container
+          if (containerRef.current) {
+            containerRef.current.innerHTML = '';
+          }
         }
       }
     };
