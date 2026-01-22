@@ -91,7 +91,7 @@ const formatTimestamp = (ts) => {
   }
 };
 
-const TranscriptViewer = ({ transcript = [] }) => {
+const TranscriptViewer = ({ transcript = [], swapRoles = false }) => {
   if (!transcript || transcript.length === 0) {
     return (
       <EmptyState>
@@ -101,9 +101,17 @@ const TranscriptViewer = ({ transcript = [] }) => {
     );
   }
 
+  // Swap roles if needed (for inbound agent simulation when call_type is outbound)
+  const processedTranscript = swapRoles
+    ? transcript.map(entry => ({
+        ...entry,
+        role: entry.role === 'agent' ? 'user' : 'agent'
+      }))
+    : transcript;
+
   return (
     <TranscriptContainer>
-      {transcript.map((entry, index) => (
+      {processedTranscript.map((entry, index) => (
         <MessageBubble key={entry.seq || index} role={entry.role}>
           <MessageHeader>
             <RoleLabel role={entry.role}>

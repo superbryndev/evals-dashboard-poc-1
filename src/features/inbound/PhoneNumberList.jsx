@@ -3,6 +3,7 @@ import { getPhoneNumbers } from '../../services/api';
 import PhoneNumberCard from './PhoneNumberCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
+import CountryFilterToggle from '../../components/CountryFilterToggle';
 import './PhoneNumberList.css';
 
 /**
@@ -11,8 +12,15 @@ import './PhoneNumberList.css';
  * @param {Object} props
  * @param {Function} props.onSelectPhone - Callback when phone number is selected (optional)
  * @param {boolean} props.selectable - Whether phone numbers are selectable (default: false)
+ * @param {boolean} props.indianNumbersOnly - Whether to filter to Indian numbers only
+ * @param {Function} props.onFilterChange - Callback when filter toggle changes
  */
-const PhoneNumberList = ({ onSelectPhone, selectable = false }) => {
+const PhoneNumberList = ({ 
+  onSelectPhone, 
+  selectable = false,
+  indianNumbersOnly = false,
+  onFilterChange,
+}) => {
   const [phoneNumbers, setPhoneNumbers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -64,35 +72,63 @@ const PhoneNumberList = ({ onSelectPhone, selectable = false }) => {
     );
   }
 
-  const availableCount = phoneNumbers.filter((p) => p.is_available).length;
-  const totalCount = phoneNumbers.length;
+  // Filter phone numbers by country if toggle is ON
+  const filteredNumbers = indianNumbersOnly
+    ? phoneNumbers.filter((p) => p.phone_number.startsWith('+91'))
+    : phoneNumbers;
+
+  const availableCount = filteredNumbers.filter((p) => p.is_available).length;
+  const totalCount = filteredNumbers.length;
+
+  const handleFilterChange = (newValue) => {
+    onFilterChange?.(newValue);
+  };
 
   return (
     <div className="phone-number-list">
       <div className="phone-number-list__header">
         <h3 className="phone-number-list__title">Available Phone Numbers</h3>
-        <div className="phone-number-list__stats">
-          <span className="phone-number-list__stat phone-number-list__stat--available">
-            {availableCount} Available
-          </span>
-          <span className="phone-number-list__stat phone-number-list__stat--total">
-            {totalCount} Total
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-lg)' }}>
+          <div className="phone-number-list__stats">
+            <span className="phone-number-list__stat phone-number-list__stat--available">
+              {availableCount} {indianNumbersOnly ? 'Indian' : ''} Available
+            </span>
+            <span className="phone-number-list__stat phone-number-list__stat--total">
+              {totalCount} {indianNumbersOnly ? 'Indian' : ''} Total
+            </span>
+          </div>
+          <CountryFilterToggle
+            active={indianNumbersOnly}
+            onChange={handleFilterChange}
+            label="Indian Numbers Only"
+          />
         </div>
       </div>
 
       <div className="phone-number-list__grid">
-        {phoneNumbers.map((phone) => (
-          <PhoneNumberCard
-            key={phone.phone_number}
-            phoneNumber={phone.phone_number}
-            isAvailable={phone.is_available}
-            activeJobId={phone.active_job_id}
-            activeJobStatus={phone.active_job_status}
-            onSelect={onSelectPhone}
-            selectable={selectable}
-          />
-        ))}
+        {filteredNumbers.length === 0 ? (
+          <div className="phone-number-list__empty">
+            <div className="phone-number-list__empty-icon">📞</div>
+            <h3>No {indianNumbersOnly ? 'Indian ' : ''}Phone Numbers Available</h3>
+            <p>
+              {indianNumbersOnly 
+                ? 'No Indian phone numbers are currently configured or available.'
+                : 'Contact your administrator to configure inbound phone numbers.'}
+            </p>
+          </div>
+        ) : (
+          filteredNumbers.map((phone) => (
+            <PhoneNumberCard
+              key={phone.phone_number}
+              phoneNumber={phone.phone_number}
+              isAvailable={phone.is_available}
+              activeJobId={phone.active_job_id}
+              activeJobStatus={phone.active_job_status}
+              onSelect={onSelectPhone}
+              selectable={selectable}
+            />
+          ))
+        )}
       </div>
     </div>
   );

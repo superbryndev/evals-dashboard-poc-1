@@ -143,10 +143,12 @@ export const retryJob = async (jobId) => {
 
 /**
  * Get available phone numbers for inbound calls
+ * @param {string} countryCode - Optional country code filter (e.g., 'IN', 'US')
  * @returns {Promise<Object>} Phone numbers with availability status
  */
-export const getPhoneNumbers = async () => {
-  const response = await api.get('/api/v1/calls/telephony/numbers');
+export const getPhoneNumbers = async (countryCode = null) => {
+  const params = countryCode ? { country_code: countryCode } : {};
+  const response = await api.get('/api/v1/calls/telephony/numbers', { params });
   return response.data;
 };
 
@@ -180,12 +182,14 @@ export const getInboundBatchStatus = async (batchId) => {
  * Activate jobs in an inbound batch
  * @param {string} batchId - The batch UUID
  * @param {Array<string>} jobIds - Array of job IDs to activate
+ * @param {string} countryCode - Optional country code filter (e.g., 'IN', 'US')
  * @returns {Promise<Object>} Activation response with assigned phone numbers
  */
-export const activateInboundJobs = async (batchId, jobIds) => {
+export const activateInboundJobs = async (batchId, jobIds, countryCode = null) => {
+  const params = countryCode ? { country_code: countryCode } : {};
   const response = await api.post(`/api/v1/calls/inbound/batch/${batchId}/activate`, {
     job_ids: jobIds,
-  });
+  }, { params });
   return response.data;
 };
 

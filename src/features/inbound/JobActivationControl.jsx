@@ -10,12 +10,14 @@ import './JobActivationControl.css';
  * @param {Array} props.inactiveJobs - List of inactive jobs
  * @param {number} props.availableSlots - Number of available phone slots
  * @param {Function} props.onActivationSuccess - Callback when jobs are activated
+ * @param {boolean} props.indianNumbersOnly - Whether to filter to Indian numbers only
  */
 const JobActivationControl = ({
   batchId,
   inactiveJobs = [],
   availableSlots = 0,
   onActivationSuccess,
+  indianNumbersOnly = false,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -41,7 +43,7 @@ const JobActivationControl = ({
         throw new Error('No valid job IDs found to activate');
       }
 
-      const response = await activateInboundJobs(batchId, jobsToActivate);
+      const response = await activateInboundJobs(batchId, jobsToActivate, indianNumbersOnly ? 'IN' : undefined);
       onActivationSuccess?.(response);
     } catch (err) {
       setError(
@@ -70,7 +72,7 @@ const JobActivationControl = ({
         throw new Error('No valid job IDs found to activate');
       }
 
-      const response = await activateInboundJobs(batchId, jobsToActivate);
+      const response = await activateInboundJobs(batchId, jobsToActivate, indianNumbersOnly ? 'IN' : undefined);
       onActivationSuccess?.(response);
     } catch (err) {
       setError(

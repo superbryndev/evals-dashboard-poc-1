@@ -174,6 +174,39 @@ const EvaluateButton = styled.button`
   }
 `;
 
+const ViewAnalysisButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+  margin-top: var(--space-md);
+  
+  &:hover:not(:disabled) {
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
 const ErrorText = styled.p`
   color: var(--color-error);
   font-size: 0.8125rem;
@@ -193,7 +226,7 @@ const formatLatency = (ms) => {
   return `${Math.round(ms)}ms`;
 };
 
-const CallDetailsCard = ({ job, call, scenario }) => {
+const CallDetailsCard = ({ job, call, scenario, swapTranscriptRoles = false, onViewAnalysis }) => {
   const [analytics, setAnalytics] = useState(null);
   const [evaluation, setEvaluation] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -417,7 +450,7 @@ const CallDetailsCard = ({ job, call, scenario }) => {
             Loading transcript...
           </div>
         ) : (
-          <TranscriptViewer transcript={transcript} />
+          <TranscriptViewer transcript={transcript} swapRoles={swapTranscriptRoles} />
         )}
       </Section>
       
@@ -432,35 +465,23 @@ const CallDetailsCard = ({ job, call, scenario }) => {
           onReEvaluate={() => handleEvaluate(true)}
           isLoading={evaluating}
         />
-      ) : (
-        <div>
-          {(() => {
-            // Check for evaluation criteria in new format or legacy format
-            const hasCriteria = scenario?.evaluation_criteria?.agent_should?.length > 0 || 
-                               scenario?.evaluation_criteria?.agent_should_not?.length > 0 ||
-                               scenario?.expected_agent_goals?.length > 0;
-            return (
-              <>
-                <EvaluateButton 
-                  onClick={() => handleEvaluate(false)}
-                  disabled={evaluating || !hasCriteria}
-                >
-                  {evaluating ? 'Evaluating...' : '🧠 Run AI Evaluation'}
-                </EvaluateButton>
-                {!hasCriteria && (
-                  <p style={{ 
-                    marginTop: 'var(--space-sm)', 
-                    fontSize: '0.8125rem', 
-                    color: 'var(--color-muted)',
-                    textAlign: 'center'
-                  }}>
-                    No evaluation criteria defined for this scenario
-                  </p>
-                )}
-              </>
-            );
-          })()}
-        </div>
+      ) : null}
+      
+      {/* View Analysis Button */}
+      {onViewAnalysis && isCompleted && (
+        <ViewAnalysisButton onClick={() => {
+          const callId = call?.call_id || call?.id;
+          const jobId = job?.job_id;
+          if (callId) {
+            onViewAnalysis(callId, jobId);
+          }
+        }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 11l3 3L22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7" />
+          </svg>
+          View Analysis
+        </ViewAnalysisButton>
       )}
     </DetailsContainer>
   );

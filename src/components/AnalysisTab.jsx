@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styled from '@emotion/styled';
 import { fetchBatchAnalysis, fetchBatchDetails, triggerCallAnalysis, triggerBatchAnalysis } from '../services/api';
 import AnalysisSummaryCard from './AnalysisSummaryCard';
@@ -129,7 +129,7 @@ const RefreshIcon = () => (
   </svg>
 );
 
-const AnalysisTab = ({ batchId }) => {
+const AnalysisTab = ({ batchId, onNavigateToCallDetails, highlightCallId }) => {
   const [analysisData, setAnalysisData] = useState(null);
   const [batchDetails, setBatchDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -137,6 +137,7 @@ const AnalysisTab = ({ batchId }) => {
   const [reAnalyzing, setReAnalyzing] = useState(false);
   const [reAnalyzeProgress, setReAnalyzeProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState(null);
+  const highlightedCardRefs = React.useRef({});
 
   const loadAnalysis = useCallback(async (isRefresh = false) => {
     try {
@@ -186,6 +187,21 @@ const AnalysisTab = ({ batchId }) => {
   useEffect(() => {
     loadAnalysis();
   }, [loadAnalysis]);
+
+  // Scroll to highlighted card when highlightCallId changes
+  useEffect(() => {
+    if (highlightCallId) {
+      const ref = highlightedCardRefs.current[highlightCallId];
+      if (ref) {
+        setTimeout(() => {
+          ref.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }, 100);
+      }
+    }
+  }, [highlightCallId]);
 
   const handleRefresh = () => {
     loadAnalysis(true);
@@ -373,6 +389,19 @@ const AnalysisTab = ({ batchId }) => {
     })),
   ];
 
+  // Helper function to find job_id for a call
+  const findJobIdForCall = (callId, callUuid) => {
+    const jobs = batchDetails?.jobs || [];
+    for (const job of jobs) {
+      if (job.call) {
+        if (job.call.call_id === callId || job.call.id === callUuid || job.call.id === callId) {
+          return job.job_id;
+        }
+      }
+    }
+    return null;
+  };
+
   return (
     <Container>
       <HeaderRow>
@@ -447,26 +476,69 @@ const AnalysisTab = ({ batchId }) => {
         </EmptyState>
       ) : (
         <CallsList>
-          {results.map((result) => (
-            <CallAnalysisCard
-              key={result.call_id}
-              result={result}
-              callId={result.call_uuid || result.call_id}
-              callIdDisplay={result.call_id}
-              onAnalyze={handleAnalyze}
-              onExpand={handleExpandCall}
-            />
-          ))}
-          {callsWithoutAnalysis.map((call) => (
-            <CallAnalysisCard
-              key={call.id || call.call_id}
-              result={null}
-              callId={call.id} // Pass UUID instead of SIP call_id
-              callIdDisplay={call.call_id} // SIP call_id for display
-              onAnalyze={handleAnalyze}
-              onExpand={handleExpandCall}
-            />
-          ))}
+          {results.map((result) => {
+            const jobId = findJobIdForCall(result.call_id, result.call_uuid);
+            const callIdKey = result.call_uuid || result.call_id;
+            const isHighlighted = highlightCallId === result.call_id || highlightCallId === result.call_uuid;
+            return (
+              <div 
+                key={result.call_id}
+                ref={(el) => {
+                  if (el && callIdKey) {
+                    highlightedCardRefs.current[callIdKey] = el;
+                    highlightedCardRefs.current[result.call_id] = el;
+                  }
+                }}
+                style={isHighlighted ? { 
+                  outline: '2px solid var(--color-accent)', 
+                  outlineOffset: '4px',
+                  borderRadius: 'var(--radius-lg)',
+                  transition: 'outline 0.3s ease'
+                } : {}}
+              >
+                <CallAnalysisCard
+                  result={result}
+                  callId={result.call_uuid || result.call_id}
+                  callIdDisplay={result.call_id}
+                  jobId={jobId}
+                  onAnalyze={handleAnalyze}
+                  onExpand={handleExpandCall}
+                  onViewCallDetails={onNavigateToCallDetails}
+                />
+              </div>
+            );
+          })}
+          {callsWithoutAnalysis.map((call) => {
+            const callIdKey = call.id || call.call_id;
+            const isHighlighted = highlightCallId === call.id || highlightCallId === call.call_id;
+            return (
+              <div 
+                key={call.id || call.call_id}
+                ref={(el) => {
+                  if (el && callIdKey) {
+                    highlightedCardRefs.current[callIdKey] = el;
+                    highlightedCardRefs.current[call.call_id] = el;
+                  }
+                }}
+                style={isHighlighted ? { 
+                  outline: '2px solid var(--color-accent)', 
+                  outlineOffset: '4px',
+                  borderRadius: 'var(--radius-lg)',
+                  transition: 'outline 0.3s ease'
+                } : {}}
+              >
+                <CallAnalysisCard
+                  result={null}
+                  callId={call.id} // Pass UUID instead of SIP call_id
+                  callIdDisplay={call.call_id} // SIP call_id for display
+                  jobId={call.job_id}
+                  onAnalyze={handleAnalyze}
+                  onExpand={handleExpandCall}
+                  onViewCallDetails={onNavigateToCallDetails}
+                />
+              </div>
+            );
+          })}
         </CallsList>
       )}
     </Container>

@@ -21,12 +21,20 @@ const PhoneNumberCard = ({
   selectable = false,
 }) => {
   const formatPhoneNumber = (phone) => {
-    // Format +19876543210 to +1 (987) 654-3210
     if (!phone) return '';
     const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length === 11) {
+    
+    // Format Indian numbers: +918065171376 to +91 80 6517 1376
+    if (cleaned.length === 13 && cleaned.startsWith('91')) {
+      const number = cleaned.slice(2); // Remove country code
+      return `+91 ${number.slice(0, 2)} ${number.slice(2, 6)} ${number.slice(6)}`;
+    }
+    
+    // Format US numbers: +19876543210 to +1 (987) 654-3210
+    if (cleaned.length === 11 && cleaned.startsWith('1')) {
       return `+${cleaned[0]} (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
     }
+    
     return phone;
   };
 

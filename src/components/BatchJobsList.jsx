@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import StatusBadge from './StatusBadge';
 import CallDetailsCard from './CallDetailsCard';
@@ -377,6 +377,8 @@ const BatchJobsList = ({
   availableSlots = 0,
   onActivateJob,
   onDeactivateJob,
+  highlightedJobId,
+  onNavigateToAnalysis,
 }) => {
   const [expandedJobId, setExpandedJobId] = useState(null);
   const [retryingJobId, setRetryingJobId] = useState(null);
@@ -420,6 +422,20 @@ const BatchJobsList = ({
       }
     });
   }, [jobs]);
+
+  // Auto-expand job when highlightedJobId changes
+  useEffect(() => {
+    if (highlightedJobId && highlightedJobId !== expandedJobId) {
+      setExpandedJobId(highlightedJobId);
+      // Scroll to the expanded job
+      setTimeout(() => {
+        const jobElement = document.querySelector(`[data-job-id="${highlightedJobId}"]`);
+        if (jobElement) {
+          jobElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [highlightedJobId, expandedJobId]);
 
   const toggleExpand = (jobId) => {
     setExpandedJobId(expandedJobId === jobId ? null : jobId);
@@ -549,7 +565,7 @@ const BatchJobsList = ({
         const canDeactivate = job.status === 'active'; // Can only deactivate 'active' jobs, not 'inprogress'
         
         return (
-          <JobRow key={job.job_id}>
+          <JobRow key={job.job_id} data-job-id={job.job_id}>
             <JobRowMain className={isExpanded ? 'expanded' : ''} isInbound={isInbound}>
               <SerialNumber>
                 #{index + 1}
@@ -731,6 +747,13 @@ const BatchJobsList = ({
                     job={job}
                     call={job.call}
                     scenario={scenarioSnapshot}
+                    swapTranscriptRoles={!isInbound}
+                    onViewAnalysis={onNavigateToAnalysis ? (() => {
+                      const callId = job.call?.call_id || job.call?.id;
+                      if (callId) {
+                        onNavigateToAnalysis(callId, job.job_id);
+                      }
+                    }) : undefined}
                   />
                 )}
               </ExpandedContent>

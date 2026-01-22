@@ -271,6 +271,9 @@ const BatchAnalytics = () => {
   const [availablePhoneNumbers, setAvailablePhoneNumbers] = useState(0);
   const [showPayloadModal, setShowPayloadModal] = useState(false);
   const [showAllPayloadsModal, setShowAllPayloadsModal] = useState(false);
+  const [indianNumbersOnly, setIndianNumbersOnly] = useState(false);
+  const [highlightedJobId, setHighlightedJobId] = useState(null);
+  const [highlightedCallId, setHighlightedCallId] = useState(null);
 
   const loadBatchData = useCallback(async (isRefresh = false) => {
     try {
@@ -299,8 +302,13 @@ const BatchAnalytics = () => {
             
             // Fetch available phone numbers to calculate actual available slots
             try {
-              const phoneNumbers = await getPhoneNumbers();
-              setAvailablePhoneNumbers(phoneNumbers.available || 0);
+              const phoneNumbers = await getPhoneNumbers(indianNumbersOnly ? 'IN' : undefined);
+              // Filter by country if toggle is ON
+              const filteredNumbers = indianNumbersOnly
+                ? (phoneNumbers.numbers || []).filter(n => n.phone_number.startsWith('+91'))
+                : (phoneNumbers.numbers || []);
+              const availableCount = filteredNumbers.filter(n => n.is_available).length;
+              setAvailablePhoneNumbers(availableCount);
             } catch (phoneErr) {
               console.warn('Failed to fetch phone numbers:', phoneErr);
               setAvailablePhoneNumbers(0);
@@ -367,8 +375,13 @@ const BatchAnalytics = () => {
           
           // Fetch available phone numbers to calculate actual available slots
           try {
-            const phoneNumbers = await getPhoneNumbers();
-            setAvailablePhoneNumbers(phoneNumbers.available || 0);
+            const phoneNumbers = await getPhoneNumbers(indianNumbersOnly ? 'IN' : undefined);
+            // Filter by country if toggle is ON
+            const filteredNumbers = indianNumbersOnly
+              ? (phoneNumbers.numbers || []).filter(n => n.phone_number.startsWith('+91'))
+              : (phoneNumbers.numbers || []);
+            const availableCount = filteredNumbers.filter(n => n.is_available).length;
+            setAvailablePhoneNumbers(availableCount);
           } catch (phoneErr) {
             console.warn('Failed to fetch phone numbers:', phoneErr);
             setAvailablePhoneNumbers(0);
@@ -412,6 +425,26 @@ const BatchAnalytics = () => {
     // Removed auto-refresh - users can manually refresh using the refresh button
   }, [loadBatchData]);
 
+  // Refetch phone numbers when filter changes
+  useEffect(() => {
+    if (isInbound && inboundData) {
+      const fetchPhoneNumbers = async () => {
+        try {
+          const phoneNumbers = await getPhoneNumbers(indianNumbersOnly ? 'IN' : undefined);
+          const filteredNumbers = indianNumbersOnly
+            ? (phoneNumbers.numbers || []).filter(n => n.phone_number.startsWith('+91'))
+            : (phoneNumbers.numbers || []);
+          const availableCount = filteredNumbers.filter(n => n.is_available).length;
+          setAvailablePhoneNumbers(availableCount);
+        } catch (phoneErr) {
+          console.warn('Failed to fetch phone numbers:', phoneErr);
+          setAvailablePhoneNumbers(0);
+        }
+      };
+      fetchPhoneNumbers();
+    }
+  }, [indianNumbersOnly, isInbound, inboundData]);
+
   const handleRefresh = () => {
     loadBatchData(true);
   };
@@ -427,10 +460,10 @@ const BatchAnalytics = () => {
   // Handler for single job activation from the table toggle
   const handleActivateJob = async (jobId) => {
     try {
-      const response = await activateInboundJobs(batchId, [jobId]);
+      const response = await activateInboundJobs(batchId, [jobId], indianNumbersOnly ? 'IN' : undefined);
       setToast({
         type: 'success',
-        message: `Scenario activated! Phone: ${response.assignments?.[0]?.phone_number || 'assigned'}`,
+        message: `Scenario activated! Phone: ${response.assignments?.[0]?.phone_number || response.job_details?.[0]?.assigned_phone_number || 'assigned'}`,
       });
       loadBatchData(true);
       return response;
@@ -468,6 +501,25 @@ const BatchAnalytics = () => {
     console.log('View call:', call);
     // Future: Navigate to call details
   };
+
+  // Navigation handlers for correlating analysis and call details
+  const handleNavigateToCallDetails = useCallback((callId, jobId) => {
+    setHighlightedJobId(jobId);
+    setActiveTab('simulations');
+    // Clear highlight after a delay to allow expansion
+    setTimeout(() => {
+      setHighlightedJobId(null);
+    }, 2000);
+  }, []);
+
+  const handleNavigateToAnalysis = useCallback((callId, jobId) => {
+    setHighlightedCallId(callId);
+    setActiveTab('analysis');
+    // Clear highlight after a delay to allow scrolling
+    setTimeout(() => {
+      setHighlightedCallId(null);
+    }, 2000);
+  }, []);
 
   const handlePayloadGenerationComplete = (result) => {
     setToast({
@@ -550,7 +602,10 @@ const BatchAnalytics = () => {
           />
 
           {/* Available Phone Numbers */}
-          <PhoneNumberList />
+          <PhoneNumberList 
+            indianNumbersOnly={indianNumbersOnly}
+            onFilterChange={setIndianNumbersOnly}
+          />
 
           {/* Payload Generation Section - Show for inbound batches (testing outbound agents) */}
           <PayloadSection>
@@ -583,6 +638,7 @@ const BatchAnalytics = () => {
               inactiveJobs={inactiveJobs}
               availableSlots={availableSlots}
               onActivationSuccess={handleActivationSuccess}
+              indianNumbersOnly={indianNumbersOnly}
             />
 
             {/* Active Calls */}
@@ -610,11 +666,17 @@ const BatchAnalytics = () => {
                 availableSlots={availableSlots}
                 onActivateJob={handleActivateJob}
                 onDeactivateJob={handleDeactivateJob}
+                highlightedJobId={highlightedJobId}
+                onNavigateToAnalysis={handleNavigateToAnalysis}
               />
             )}
             
             {activeTab === 'analysis' && (
-              <AnalysisTab batchId={batchId} />
+              <AnalysisTab 
+                batchId={batchId}
+                onNavigateToCallDetails={handleNavigateToCallDetails}
+                highlightCallId={highlightedCallId}
+              />
             )}
           </TabContent>
         </ContentSection>
@@ -701,11 +763,17 @@ const BatchAnalytics = () => {
                 jobs={batchData.jobs} 
                 onRefresh={handleRefresh}
                 isInbound={false}
+                highlightedJobId={highlightedJobId}
+                onNavigateToAnalysis={handleNavigateToAnalysis}
               />
             )}
             
             {activeTab === 'analysis' && (
-              <AnalysisTab batchId={batchId} />
+              <AnalysisTab 
+                batchId={batchId}
+                onNavigateToCallDetails={handleNavigateToCallDetails}
+                highlightCallId={highlightedCallId}
+              />
             )}
           </TabContent>
         </ContentSection>

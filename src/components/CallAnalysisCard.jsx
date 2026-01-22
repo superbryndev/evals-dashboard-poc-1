@@ -481,7 +481,44 @@ const AnalyzeButton = styled.button`
   }
 `;
 
-const CallAnalysisCard = ({ result, callId, callIdDisplay, onAnalyze, onExpand }) => {
+const ViewCallDetailsButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  
+  &:hover:not(:disabled) {
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+`;
+
+const CardHeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+`;
+
+const CallAnalysisCard = ({ result, callId, callIdDisplay, jobId, onAnalyze, onExpand, onViewCallDetails }) => {
   const [expanded, setExpanded] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState(null);
@@ -546,24 +583,42 @@ const CallAnalysisCard = ({ result, callId, callIdDisplay, onAnalyze, onExpand }
     }
   };
 
+  const handleViewCallDetails = () => {
+    if (onViewCallDetails && api_call_id) {
+      onViewCallDetails(api_call_id, jobId);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
         <CallId>{display_call_id}</CallId>
-        {hasAnalysis ? (
-          <StatusBadge passed={passed}>
-            {passed ? 'Passed' : 'Failed'}
-          </StatusBadge>
-        ) : (
-          <AnalyzeButton onClick={handleAnalyze} disabled={analyzing} className={analyzing ? 'loading' : ''}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="23,4 23,10 17,10" />
-              <polyline points="1,20 1,14 7,14" />
-              <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
-            {analyzing ? 'Analyzing...' : 'Analyze'}
-          </AnalyzeButton>
-        )}
+        <CardHeaderActions>
+          {hasAnalysis && onViewCallDetails && (
+            <ViewCallDetailsButton onClick={handleViewCallDetails}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                <polyline points="10 17 15 12 10 7" />
+                <line x1="15" y1="12" x2="3" y2="12" />
+              </svg>
+              View Details
+            </ViewCallDetailsButton>
+          )}
+          {hasAnalysis ? (
+            <StatusBadge passed={passed}>
+              {passed ? 'Passed' : 'Failed'}
+            </StatusBadge>
+          ) : (
+            <AnalyzeButton onClick={handleAnalyze} disabled={analyzing} className={analyzing ? 'loading' : ''}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23,4 23,10 17,10" />
+                <polyline points="1,20 1,14 7,14" />
+                <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+              {analyzing ? 'Analyzing...' : 'Analyze'}
+            </AnalyzeButton>
+          )}
+        </CardHeaderActions>
       </CardHeader>
       
       {analyzeError && (
