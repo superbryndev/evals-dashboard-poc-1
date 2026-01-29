@@ -111,3 +111,32 @@
   border-color: #DBEAFE;
 }
 
+.phone-number-card__free-btn {
+  margin-top: var(--space-sm);
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-accent);
+  background: var(--color-bg-secondary);
+  color: var(--color-accent);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.phone-number-card__free-btn:hover:not(:disabled) {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.phone-number-card__free-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+

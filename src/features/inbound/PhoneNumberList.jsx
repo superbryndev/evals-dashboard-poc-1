@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getPhoneNumbers } from '../../services/api';
+import { getPhoneNumbers, freePhoneNumber } from '../../services/api';
 import PhoneNumberCard from './PhoneNumberCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
@@ -14,23 +14,19 @@ import './PhoneNumberList.css';
  * @param {boolean} props.selectable - Whether phone numbers are selectable (default: false)
  * @param {boolean} props.indianNumbersOnly - Whether to filter to Indian numbers only
  * @param {Function} props.onFilterChange - Callback when filter toggle changes
+ * @param {number} props.refreshKey - When this changes, phone numbers are refetched
  */
 const PhoneNumberList = ({ 
   onSelectPhone, 
   selectable = false,
   indianNumbersOnly = false,
   onFilterChange,
+  refreshKey = 0,
 }) => {
   const [phoneNumbers, setPhoneNumbers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    fetchPhoneNumbers();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchPhoneNumbers, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const [freeingNumber, setFreeingNumber] = useState(null);
 
   const fetchPhoneNumbers = async () => {
     try {
@@ -41,6 +37,36 @@ const PhoneNumberList = ({
       setError(err.response?.data?.message || 'Failed to fetch phone numbers');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Initial load + periodic background refresh
+  useEffect(() => {
+    fetchPhoneNumbers();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchPhoneNumbers, 30000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Explicit refresh from parent (e.g., page refresh button)
+  useEffect(() => {
+    if (refreshKey > 0) {
+      fetchPhoneNumbers();
+    }
+  }, [refreshKey]);
+
+  const handleFreeNumber = async (phoneNumber) => {
+    try {
+      setFreeingNumber(phoneNumber);
+      await freePhoneNumber(phoneNumber);
+      // Refresh list after freeing
+      await fetchPhoneNumbers();
+    } catch (err) {
+      // Surface a simple error; detailed toast handled at parent level if needed
+      setError(err.response?.data?.detail || err.response?.data?.message || 'Failed to free phone number');
+    } finally {
+      setFreeingNumber(null);
     }
   };
 
@@ -117,17 +143,25 @@ const PhoneNumberList = ({
             </p>
           </div>
         ) : (
-          filteredNumbers.map((phone) => (
-            <PhoneNumberCard
-              key={phone.phone_number}
-              phoneNumber={phone.phone_number}
-              isAvailable={phone.is_available}
-              activeJobId={phone.active_job_id}
-              activeJobStatus={phone.active_job_status}
-              onSelect={onSelectPhone}
-              selectable={selectable}
-            />
-          ))
+          filteredNumbers.map((phone) => {
+            const isBusy = !phone.is_available;
+            const isInProgress = phone.active_job_status === 'inprogress';
+            return (
+              <PhoneNumberCard
+                key={phone.phone_number}
+                phoneNumber={phone.phone_number}
+                isAvailable={phone.is_available}
+                activeJobId={phone.active_job_id}
+                activeJobStatus={phone.active_job_status}
+                onSelect={onSelectPhone}
+                selectable={selectable}
+                canFree={isBusy}
+                onFree={handleFreeNumber}
+                isFreeing={freeingNumber === phone.phone_number}
+                disabled={freeingNumber && freeingNumber !== phone.phone_number}
+              />
+            );
+          })
         )}
       </div>
     </div>

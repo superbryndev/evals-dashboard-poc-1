@@ -129,24 +129,69 @@ const RefreshIcon = () => (
   </svg>
 );
 
-const AnalysisTab = ({ batchId, onNavigateToCallDetails, highlightCallId }) => {
-  const [analysisData, setAnalysisData] = useState(null);
-  const [batchDetails, setBatchDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
+const AnalysisTab = ({ 
+  batchId, 
+  onNavigateToCallDetails, 
+  highlightCallId,
+  cachedAnalysisData,
+  cachedBatchDetails,
+  onRefreshAnalysis,
+  isLoading: parentLoading = false
+}) => {
+  const [analysisData, setAnalysisData] = useState(cachedAnalysisData);
+  const [batchDetails, setBatchDetails] = useState(cachedBatchDetails);
+  const [loading, setLoading] = useState(!cachedAnalysisData && parentLoading);
   const [refreshing, setRefreshing] = useState(false);
   const [reAnalyzing, setReAnalyzing] = useState(false);
   const [reAnalyzeProgress, setReAnalyzeProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState(null);
   const highlightedCardRefs = React.useRef({});
 
+  // Update local state when cached data changes
+  useEffect(() => {
+    if (cachedAnalysisData) {
+      setAnalysisData(cachedAnalysisData);
+      setLoading(false);
+    }
+  }, [cachedAnalysisData]);
+
+  useEffect(() => {
+    if (cachedBatchDetails) {
+      setBatchDetails(cachedBatchDetails);
+    }
+  }, [cachedBatchDetails]);
+
+  // Update loading state based on parent loading
+  useEffect(() => {
+    if (parentLoading && !cachedAnalysisData) {
+      setLoading(true);
+    } else if (!parentLoading) {
+      setLoading(false);
+    }
+  }, [parentLoading, cachedAnalysisData]);
+
   const loadAnalysis = useCallback(async (isRefresh = false) => {
+    // If we have cached data and not refreshing, use cache
+    if (cachedAnalysisData && !isRefresh) {
+      setAnalysisData(cachedAnalysisData);
+      setBatchDetails(cachedBatchDetails);
+      return;
+    }
+
     try {
       if (isRefresh) {
         setRefreshing(true);
-      } else {
+      } else if (!cachedAnalysisData) {
         setLoading(true);
       }
       setError(null);
+      
+      // Use parent's refresh function if available, otherwise fetch directly
+      if (onRefreshAnalysis && isRefresh) {
+        // Parent will handle the refresh and update cached data
+        await onRefreshAnalysis();
+        return;
+      }
       
       // Fetch both analysis results and batch details (to get calls without analysis)
       const [analysisDataResult, batchDetailsResult] = await Promise.all([
@@ -182,11 +227,14 @@ const AnalysisTab = ({ batchId, onNavigateToCallDetails, highlightCallId }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [batchId]);
+  }, [batchId, cachedAnalysisData, cachedBatchDetails, onRefreshAnalysis, reAnalyzing]);
 
+  // Load analysis if we don't have cached data when component mounts or batchId changes
   useEffect(() => {
-    loadAnalysis();
-  }, [loadAnalysis]);
+    if (!cachedAnalysisData) {
+      loadAnalysis(false);
+    }
+  }, [batchId]); // Only depend on batchId, not loadAnalysis
 
   // Scroll to highlighted card when highlightCallId changes
   useEffect(() => {
@@ -204,7 +252,11 @@ const AnalysisTab = ({ batchId, onNavigateToCallDetails, highlightCallId }) => {
   }, [highlightCallId]);
 
   const handleRefresh = () => {
-    loadAnalysis(true);
+    if (onRefreshAnalysis) {
+      onRefreshAnalysis();
+    } else {
+      loadAnalysis(true);
+    }
   };
 
   const handleExpandCall = (callId) => {
@@ -258,6 +310,11 @@ const AnalysisTab = ({ batchId, onNavigateToCallDetails, highlightCallId }) => {
           }));
           
           setAnalysisData(freshAnalysis);
+          // Update cache if parent refresh function is available
+          if (onRefreshAnalysis) {
+            // Trigger parent refresh to update cache
+            onRefreshAnalysis();
+          }
           
           // Update progress based on how many calls now have analysis
           if (freshAnalysis && freshAnalysis.results) {
@@ -504,6 +561,7 @@ const AnalysisTab = ({ batchId, onNavigateToCallDetails, highlightCallId }) => {
                   onAnalyze={handleAnalyze}
                   onExpand={handleExpandCall}
                   onViewCallDetails={onNavigateToCallDetails}
+                  autoExpand={isHighlighted}
                 />
               </div>
             );
@@ -535,6 +593,7 @@ const AnalysisTab = ({ batchId, onNavigateToCallDetails, highlightCallId }) => {
                   onAnalyze={handleAnalyze}
                   onExpand={handleExpandCall}
                   onViewCallDetails={onNavigateToCallDetails}
+                  autoExpand={isHighlighted}
                 />
               </div>
             );

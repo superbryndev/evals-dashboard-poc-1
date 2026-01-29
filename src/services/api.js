@@ -221,6 +221,21 @@ export const getInboundBatchJobs = async (batchId, params = {}) => {
 };
 
 /**
+ * Free a phone number for inbound simulation.
+ * This will deactivate any active jobs on the number (in inbound batches)
+ * but will fail if there is any in-progress job on that number.
+ *
+ * @param {string} phoneNumber - The phone number to free (E.164 format)
+ * @returns {Promise<Object>} Free-number response
+ */
+export const freePhoneNumber = async (phoneNumber) => {
+  const response = await api.post('/api/v1/calls/telephony/numbers/free', {
+    phone_number: phoneNumber,
+  });
+  return response.data;
+};
+
+/**
  * Get list of all inbound batches
  * @param {Object} params - Query parameters
  * @param {number} params.limit - Number of results per page

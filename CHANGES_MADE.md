@@ -8,6 +8,7 @@ Implemented complete Inbound Simulation feature for SuperBryn Batch Dashboard wi
 - Replaced SuperBryn text logo with image logo - logo uses brand primary color (#855CF1) via CSS filter
 - Removed z-index from header section
 - Added phone number display for active outbound agent calls - shows the customer phone number being called when outbound jobs are in progress
+- Added refresh button next to dark/light mode toggle in Layout header - triggers page refresh or uses page-specific refresh handler (e.g., BatchAnalytics uses its own refresh function)
 
 ---
 
@@ -467,4 +468,54 @@ All features built using existing dependencies.
 - id, scenario_id, behavior_id, metadata.debug
 - voice_characteristics details, importance/importance_level
 - network_connectivity, background_noise
+
+---
+
+## Analysis Button Fix (January 29, 2026)
+
+### Changes Made
+
+1. **Fixed Analysis Button Logic**
+   - Analysis button now always shows (not conditionally rendered)
+   - Button is disabled/outlined when analysis is not available
+   - Button becomes solid/primary style when analysis is available
+   - Fixed logic to check against batch analysis results instead of job.call object
+   - Button shows "Loading..." text when analysis is being loaded
+
+2. **Fixed Analysis Availability Detection**
+   - Created `checkHasAnalysis` helper function that checks against `cachedAnalysisData.results`
+   - Properly matches calls by both `call_id` (SIP call ID) and `call_uuid` (UUID)
+   - Handles cases where analysis exists but wasn't being detected
+
+3. **Fixed Analysis Loading**
+   - Analysis loads when switching to Analysis tab if no cached data exists
+   - Analysis does not auto-refresh continuously (only on manual refresh)
+   - Prevents unnecessary continuous API calls while still loading initial data
+
+4. **Added Auto-Expand Functionality**
+   - Added `autoExpand` prop to `CallAnalysisCard` component
+   - When navigating from simulations panel, the analysis card automatically expands to show full details
+   - Uses `useEffect` to expand the card when `autoExpand` prop is true
+   - Provides better UX by showing detailed analysis immediately upon navigation
+
+5. **Enhanced Analysis Tab Highlighting**
+   - Analysis tab now passes `autoExpand={isHighlighted}` to `CallAnalysisCard` components
+   - Highlighted cards automatically expand to show full analysis details
+   - Maintains existing scroll-to-highlight functionality
+
+### Files Modified
+- `src/components/BatchJobsList.jsx` - Fixed hasAnalysis logic, made button always visible, added loading state
+- `src/components/CallAnalysisCard.jsx` - Added autoExpand prop and useEffect hook for auto-expansion
+- `src/components/AnalysisTab.jsx` - Removed auto-loading, passes autoExpand prop to highlighted cards
+- `src/pages/BatchAnalytics.jsx` - Passes cachedAnalysisData and analysisLoading to BatchJobsList, removed auto-loading
+
+### User Flow
+1. User views simulations panel - Analysis button is always visible
+2. Button is disabled/outlined when analysis is not available
+3. Button becomes solid/primary when analysis is available
+4. Button shows "Loading..." when analysis is being fetched
+5. Clicking "Analysis" navigates to Analysis tab
+6. The specific call's analysis card is highlighted and auto-expanded
+7. User can immediately see full analysis details without additional clicks
+8. Analysis loads automatically when switching to Analysis tab (if not cached), but does not auto-refresh continuously
 

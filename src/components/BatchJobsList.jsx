@@ -379,6 +379,8 @@ const BatchJobsList = ({
   onDeactivateJob,
   highlightedJobId,
   onNavigateToAnalysis,
+  cachedAnalysisData,
+  analysisLoading = false,
 }) => {
   const [expandedJobId, setExpandedJobId] = useState(null);
   const [retryingJobId, setRetryingJobId] = useState(null);
@@ -443,6 +445,19 @@ const BatchJobsList = ({
 
   const isJobCompleted = (status) => {
     return ['completed', 'failed', 'no_answer'].includes(status);
+  };
+
+  // Helper function to check if a call has analysis in batch analysis results
+  const checkHasAnalysis = (callId, callUuid) => {
+    if (!cachedAnalysisData || !cachedAnalysisData.results) {
+      return false;
+    }
+    return cachedAnalysisData.results.some(result => 
+      result.call_id === callId || 
+      result.call_uuid === callUuid || 
+      result.call_uuid === callId ||
+      result.call_id === callUuid
+    );
   };
 
   const handleRetryClick = (jobId, e) => {
@@ -549,7 +564,11 @@ const BatchJobsList = ({
         const completed = isJobCompleted(job.status);
         const scenarioSnapshot = job.scenario_snapshot || {};
         const isFailed = job.status === 'failed';
-        const hasAnalysis = job.call?.analysis || job.call?.analytics?.analysis;
+        
+        // Check if analysis exists in batch analysis results
+        const callId = job.call?.call_id;
+        const callUuid = job.call?.id;
+        const hasAnalysis = checkHasAnalysis(callId, callUuid);
         
         // Extract duration from analytics timing or call duration_seconds
         // Check both structured and raw analytics formats
@@ -645,16 +664,19 @@ const BatchJobsList = ({
                   View Details
                 </ActionButton>
                 <ActionButton 
-                  disabled={!hasAnalysis}
+                  disabled={!hasAnalysis || analysisLoading || !onNavigateToAnalysis}
                   variant={hasAnalysis ? 'primary' : undefined}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (hasAnalysis) {
-                      setExpandedJobId(job.job_id);
+                    if (hasAnalysis && onNavigateToAnalysis) {
+                      const callId = job.call?.call_id || job.call?.id;
+                      if (callId) {
+                        onNavigateToAnalysis(callId, job.job_id);
+                      }
                     }
                   }}
                 >
-                  Analysis
+                  {analysisLoading ? 'Loading...' : 'Analysis'}
                 </ActionButton>
               </ActionButtons>
             </JobRowMain>

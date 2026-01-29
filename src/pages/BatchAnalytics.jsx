@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import styled from '@emotion/styled';
-import { fetchBatchDetails, getInboundBatchStatus, getInboundBatchJobs, activateInboundJobs, deactivateInboundJobs } from '../services/api';
+import { fetchBatchDetails, getInboundBatchStatus, getInboundBatchJobs, activateInboundJobs, deactivateInboundJobs, fetchBatchAnalysis } from '../services/api';
 import BatchOverviewCard from '../components/BatchOverviewCard';
 import BatchJobsList from '../components/BatchJobsList';
 import TabNavigation from '../components/TabNavigation';
@@ -73,20 +73,22 @@ const BatchId = styled.span`
 `;
 
 const RefreshButton = styled.button`
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  color: var(--color-text-primary);
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
   font-size: 0.875rem;
   font-weight: 500;
+  cursor: pointer;
   transition: all var(--transition-fast);
   
   &:hover:not(:disabled) {
-    background: var(--color-bg-tertiary);
+    background: var(--color-accent);
+    color: #ffffff;
     border-color: var(--color-accent);
   }
   
@@ -274,6 +276,10 @@ const BatchAnalytics = () => {
   const [indianNumbersOnly, setIndianNumbersOnly] = useState(false);
   const [highlightedJobId, setHighlightedJobId] = useState(null);
   const [highlightedCallId, setHighlightedCallId] = useState(null);
+  const [cachedAnalysisData, setCachedAnalysisData] = useState(null);
+  const [cachedBatchDetails, setCachedBatchDetails] = useState(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [phoneRefreshKey, setPhoneRefreshKey] = useState(0);
 
   const loadBatchData = useCallback(async (isRefresh = false) => {
     try {
@@ -445,9 +451,24 @@ const BatchAnalytics = () => {
     }
   }, [indianNumbersOnly, isInbound, inboundData]);
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     loadBatchData(true);
-  };
+    // Also trigger explicit phone-number refresh in PhoneNumberList
+    setPhoneRefreshKey((key) => key + 1);
+  }, [loadBatchData]);
+
+  // Listen for global refresh event from Layout header
+  useEffect(() => {
+    const handleGlobalRefresh = (event) => {
+      event.preventDefault(); // Prevent page reload
+      handleRefresh(); // Use the page's own refresh function
+    };
+
+    window.addEventListener('pageRefresh', handleGlobalRefresh);
+    return () => {
+      window.removeEventListener('pageRefresh', handleGlobalRefresh);
+    };
+  }, [handleRefresh]);
 
   const handleActivationSuccess = (response) => {
     setToast({
@@ -520,6 +541,42 @@ const BatchAnalytics = () => {
       setHighlightedCallId(null);
     }, 2000);
   }, []);
+
+  // Load analysis data and cache it
+  const loadAnalysisData = useCallback(async (isRefresh = false) => {
+    // If we have cached data and not refreshing, don't reload
+    if (cachedAnalysisData && !isRefresh) {
+      return;
+    }
+
+    try {
+      setAnalysisLoading(true);
+      const [analysisDataResult, batchDetailsResult] = await Promise.all([
+        fetchBatchAnalysis(batchId).catch(err => {
+          console.warn('Failed to fetch batch analysis:', err);
+          return { summary: { passed_count: 0, failed_count: 0, pending_count: 0, avg_csat: null }, results: [] };
+        }),
+        fetchBatchDetails(batchId).catch(err => {
+          console.warn('Failed to fetch batch details:', err);
+          return { jobs: [] };
+        }),
+      ]);
+      
+      setCachedAnalysisData(analysisDataResult);
+      setCachedBatchDetails(batchDetailsResult);
+    } catch (err) {
+      console.error('Failed to load analysis data:', err);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }, [batchId, cachedAnalysisData]);
+
+  // Load analysis data when switching to analysis tab if we don't have cached data
+  useEffect(() => {
+    if (activeTab === 'analysis' && !cachedAnalysisData) {
+      loadAnalysisData(false);
+    }
+  }, [activeTab, batchId]); // Removed cachedAnalysisData and loadAnalysisData from deps to avoid infinite loop
 
   const handlePayloadGenerationComplete = (result) => {
     setToast({
@@ -605,6 +662,7 @@ const BatchAnalytics = () => {
           <PhoneNumberList 
             indianNumbersOnly={indianNumbersOnly}
             onFilterChange={setIndianNumbersOnly}
+            refreshKey={phoneRefreshKey}
           />
 
           {/* Payload Generation Section - Show for inbound batches (testing outbound agents) */}
@@ -668,6 +726,8 @@ const BatchAnalytics = () => {
                 onDeactivateJob={handleDeactivateJob}
                 highlightedJobId={highlightedJobId}
                 onNavigateToAnalysis={handleNavigateToAnalysis}
+                cachedAnalysisData={cachedAnalysisData}
+                analysisLoading={analysisLoading}
               />
             )}
             
@@ -676,6 +736,10 @@ const BatchAnalytics = () => {
                 batchId={batchId}
                 onNavigateToCallDetails={handleNavigateToCallDetails}
                 highlightCallId={highlightedCallId}
+                cachedAnalysisData={cachedAnalysisData}
+                cachedBatchDetails={cachedBatchDetails}
+                onRefreshAnalysis={() => loadAnalysisData(true)}
+                isLoading={analysisLoading}
               />
             )}
           </TabContent>
@@ -765,6 +829,8 @@ const BatchAnalytics = () => {
                 isInbound={false}
                 highlightedJobId={highlightedJobId}
                 onNavigateToAnalysis={handleNavigateToAnalysis}
+                cachedAnalysisData={cachedAnalysisData}
+                analysisLoading={analysisLoading}
               />
             )}
             
@@ -773,6 +839,10 @@ const BatchAnalytics = () => {
                 batchId={batchId}
                 onNavigateToCallDetails={handleNavigateToCallDetails}
                 highlightCallId={highlightedCallId}
+                cachedAnalysisData={cachedAnalysisData}
+                cachedBatchDetails={cachedBatchDetails}
+                onRefreshAnalysis={() => loadAnalysisData(true)}
+                isLoading={analysisLoading}
               />
             )}
           </TabContent>

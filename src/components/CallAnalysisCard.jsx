@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { triggerCallAnalysis } from '../services/api';
 
@@ -518,10 +518,17 @@ const CardHeaderActions = styled.div`
   gap: var(--space-sm);
 `;
 
-const CallAnalysisCard = ({ result, callId, callIdDisplay, jobId, onAnalyze, onExpand, onViewCallDetails }) => {
-  const [expanded, setExpanded] = useState(false);
+const CallAnalysisCard = ({ result, callId, callIdDisplay, jobId, onAnalyze, onExpand, onViewCallDetails, autoExpand = false }) => {
+  const [expanded, setExpanded] = useState(autoExpand);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState(null);
+  
+  // Auto-expand when autoExpand prop changes to true
+  useEffect(() => {
+    if (autoExpand && !expanded) {
+      setExpanded(true);
+    }
+  }, [autoExpand, expanded]);
   
   const {
     call_id: result_call_id,
@@ -601,7 +608,7 @@ const CallAnalysisCard = ({ result, callId, callIdDisplay, jobId, onAnalyze, onE
                 <polyline points="10 17 15 12 10 7" />
                 <line x1="15" y1="12" x2="3" y2="12" />
               </svg>
-              View Details
+              View Simulation Details
             </ViewCallDetailsButton>
           )}
           {hasAnalysis ? (

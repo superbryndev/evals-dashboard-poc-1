@@ -11,6 +11,10 @@ import './PhoneNumberCard.css';
  * @param {string} props.activeJobStatus - Status of active job
  * @param {Function} props.onSelect - Callback when phone number is selected
  * @param {boolean} props.selectable - Whether the card is selectable
+ * @param {boolean} props.canFree - Whether the number can be freed from the dashboard
+ * @param {Function} props.onFree - Callback when the user clicks \"Free number\"
+ * @param {boolean} props.isFreeing - Whether a free operation is in progress for this number
+ * @param {boolean} props.disabled - Whether actions on this card are temporarily disabled
  */
 const PhoneNumberCard = ({
   phoneNumber,
@@ -19,6 +23,10 @@ const PhoneNumberCard = ({
   activeJobStatus,
   onSelect,
   selectable = false,
+  canFree = false,
+  onFree,
+  isFreeing = false,
+  disabled = false,
 }) => {
   const formatPhoneNumber = (phone) => {
     if (!phone) return '';
@@ -37,6 +45,13 @@ const PhoneNumberCard = ({
     
     return phone;
   };
+
+  const handleFreeClick = () => {
+    if (!onFree) return;
+    onFree(phoneNumber);
+  };
+
+  const isInProgress = activeJobStatus === 'inprogress';
 
   return (
     <div className={`phone-number-card ${isAvailable ? 'phone-number-card--available' : 'phone-number-card--busy'}`}>
@@ -73,9 +88,20 @@ const PhoneNumberCard = ({
         <button
           className="phone-number-card__select-btn"
           onClick={() => onSelect?.(phoneNumber)}
-          disabled={!isAvailable}
+          disabled={!isAvailable || disabled}
         >
           {isAvailable ? 'Select' : 'Unavailable'}
+        </button>
+      )}
+
+      {!isAvailable && canFree && (
+        <button
+          type="button"
+          className="phone-number-card__free-btn"
+          onClick={handleFreeClick}
+          disabled={isInProgress || isFreeing || disabled}
+        >
+          {isInProgress ? 'In Progress' : isFreeing ? 'Freeing…' : 'Free number'}
         </button>
       )}
     </div>
