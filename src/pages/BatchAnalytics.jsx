@@ -431,6 +431,13 @@ const BatchAnalytics = () => {
     // Removed auto-refresh - users can manually refresh using the refresh button
   }, [loadBatchData]);
 
+  // Load analysis data on page load
+  useEffect(() => {
+    if (batchId && !cachedAnalysisData) {
+      loadAnalysisData(false);
+    }
+  }, [batchId]); // Only depend on batchId to load once on page load
+
   // Refetch phone numbers when filter changes
   useEffect(() => {
     if (isInbound && inboundData) {

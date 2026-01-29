@@ -488,7 +488,8 @@ All features built using existing dependencies.
    - Handles cases where analysis exists but wasn't being detected
 
 3. **Fixed Analysis Loading**
-   - Analysis loads when switching to Analysis tab if no cached data exists
+   - Analysis loads automatically on page load (when batchId is available)
+   - Analysis also loads when switching to Analysis tab if no cached data exists (fallback)
    - Analysis does not auto-refresh continuously (only on manual refresh)
    - Prevents unnecessary continuous API calls while still loading initial data
 
@@ -517,5 +518,5 @@ All features built using existing dependencies.
 5. Clicking "Analysis" navigates to Analysis tab
 6. The specific call's analysis card is highlighted and auto-expanded
 7. User can immediately see full analysis details without additional clicks
-8. Analysis loads automatically when switching to Analysis tab (if not cached), but does not auto-refresh continuously
+8. Analysis loads automatically on page load, and also when switching to Analysis tab (if not cached), but does not auto-refresh continuously
 
